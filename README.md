@@ -1,10 +1,6 @@
 # SOLANUS: An Upgraded Web3 Version of ANUS
 
 <p align="center">
-  <img src="assets/header_solanus.png" alt="Anus AI Logo" width="800"/>
-</p>
-
-<p align="center">
   <img src="assets/solano.png" alt="Anus AI Logo" width="150"/>
 </p>
 
