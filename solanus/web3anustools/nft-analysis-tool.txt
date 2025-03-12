@@ -1,0 +1,746 @@
+from typing import Dict, Any, Optional, List, Union
+import json
+import logging
+import requests
+import time
+import statistics
+from datetime import datetime, timedelta
+from anus.tools.web3.nft_base_tool import NFTBaseTool
+from anus.tools.base.tool_result import ToolResult
+
+class NFTAnalysisTool(NFTBaseTool):
+    """
+    Tool for analyzing NFT collections, rarity, floor prices, 
+    and market trends across multiple blockchains.
+    """
+    name = "nft_analysis"
+    description = "Analyze NFT collections, calculate rarity scores, monitor floor prices, and track market trends"
+    
+    def __init__(self, 
+                 rpc_url: str = "https://api.mainnet-beta.solana.com",
+                 private_key_path: Optional[str] = None,
+                 marketplace_api_key: Optional[str] = None,
+                 **kwargs):
+        super().__init__(rpc_url=rpc_url, private_key_path=private_key_path, **kwargs)
+        
+        # API keys for marketplace data
+        self.marketplace_api_key = marketplace_api_key
+        
+        # Cache for collection data to reduce API calls
+        self.collection_cache = {}
+        self.floor_price_cache = {}
+        self.cache_expiration = 300  # 5 minutes
+    
+    @property
+    def parameters(self) -> Dict:
+        return {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "get_collection_stats", "calculate_rarity", "get_floor_price", 
+                        "price_history", "get_trait_floor", "trait_distribution",
+                        "compare_collections", "market_sentiment", "whale_activity",
+                        "estimate_value", "trending_collections", "volume_analysis"
+                    ],
+                    "description": "The NFT analysis action to perform"
+                },
+                "collection_address": {
+                    "type": "string",
+                    "description": "Address of the NFT collection to analyze"
+                },
+                "collection_name": {
+                    "type": "string",
+                    "description": "Name of the NFT collection to analyze (alternative to address)"
+                },
+                "nft_address": {
+                    "type": "string",
+                    "description": "Address of the specific NFT to analyze"
+                },
+                "trait_type": {
+                    "type": "string",
+                    "description": "Trait type to analyze in the collection"
+                },
+                "trait_value": {
+                    "type": "string",
+                    "description": "Trait value to analyze in the collection"
+                },
+                "time_period": {
+                    "type": "string",
+                    "enum": ["1d", "7d", "30d", "90d", "all"],
+                    "description": "Time period for historical analysis"
+                },
+                "marketplace": {
+                    "type": "string",
+                    "enum": ["all", "magic_eden", "opensea", "solanart", "raydium"],
+                    "description": "Marketplace to analyze"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of results to return"
+                },
+                "blockchain": {
+                    "type": "string",
+                    "enum": ["solana", "ethereum", "polygon"],
+                    "description": "Blockchain to analyze NFTs on (default: solana)"
+                },
+                "wallet_address": {
+                    "type": "string",
+                    "description": "Wallet address to analyze for NFT holdings"
+                }
+            },
+            "required": ["action"]
+        }
+    
+    def execute(self, **kwargs) -> Union[Dict[str, Any], ToolResult]:
+        """Execute the NFT analysis tool with the given parameters"""
+        action = kwargs.get("action")
+        
+        try:
+            if action == "get_collection_stats":
+                return self._get_collection_stats(
+                    collection_address=kwargs.get("collection_address"),
+                    collection_name=kwargs.get("collection_name"),
+                    blockchain=kwargs.get("blockchain", "solana")
+                )
+            elif action == "calculate_rarity":
+                return self._calculate_rarity(
+                    nft_address=kwargs.get("nft_address"),
+                    collection_address=kwargs.get("collection_address"),
+                    blockchain=kwargs.get("blockchain", "solana")
+                )
+            elif action == "get_floor_price":
+                return self._get_floor_price(
+                    collection_address=kwargs.get("collection_address"),
+                    collection_name=kwargs.get("collection_name"),
+                    marketplace=kwargs.get("marketplace", "all"),
+                    blockchain=kwargs.get("blockchain", "solana")
+                )
+            elif action == "price_history":
+                return self._price_history(
+                    collection_address=kwargs.get("collection_address"),
+                    time_period=kwargs.get("time_period", "30d"),
+                    blockchain=kwargs.get("blockchain", "solana")
+                )
+            elif action == "get_trait_floor":
+                return self._get_trait_floor(
+                    collection_address=kwargs.get("collection_address"),
+                    trait_type=kwargs.get("trait_type"),
+                    trait_value=kwargs.get("trait_value"),
+                    blockchain=kwargs.get("blockchain", "solana")
+                )
+            elif action == "trait_distribution":
+                return self._trait_distribution(
+                    collection_address=kwargs.get("collection_address"),
+                    trait_type=kwargs.get("trait_type"),
+                    blockchain=kwargs.get("blockchain", "solana")
+                )
+            elif action == "compare_collections":
+                return self._compare_collections(
+                    collection_addresses=kwargs.get("collection_addresses", []),
+                    metrics=kwargs.get("metrics", ["floor_price", "volume", "holders"]),
+                    blockchain=kwargs.get("blockchain", "solana")
+                )
+            elif action == "trending_collections":
+                return self._trending_collections(
+                    time_period=kwargs.get("time_period", "1d"),
+                    limit=kwargs.get("limit", 10),
+                    blockchain=kwargs.get("blockchain", "solana")
+                )
+            elif action == "estimate_value":
+                return self._estimate_value(
+                    nft_address=kwargs.get("nft_address"),
+                    collection_address=kwargs.get("collection_address"),
+                    blockchain=kwargs.get("blockchain", "solana")
+                )
+            elif action == "whale_activity":
+                return self._whale_activity(
+                    collection_address=kwargs.get("collection_address"),
+                    time_period=kwargs.get("time_period", "7d"),
+                    blockchain=kwargs.get("blockchain", "solana")
+                )
+            else:
+                return ToolResult(
+                    tool_name=self.name,
+                    status="error",
+                    error=f"Unknown NFT analysis action: {action}"
+                )
+        except Exception as e:
+            logging.error(f"Error executing NFT analysis action {action}: {e}")
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error=f"Error executing NFT analysis action {action}: {str(e)}"
+            )
+    
+    def _get_collection_stats(self, collection_address: Optional[str] = None, 
+                             collection_name: Optional[str] = None,
+                             blockchain: str = "solana") -> ToolResult:
+        """Get statistics for an NFT collection"""
+        if not collection_address and not collection_name:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error="Either collection_address or collection_name is required"
+            )
+        
+        # Check cache first
+        cache_key = f"{collection_address or collection_name}_{blockchain}"
+        if cache_key in self.collection_cache:
+            cache_entry = self.collection_cache[cache_key]
+            if time.time() - cache_entry["timestamp"] < self.cache_expiration:
+                return ToolResult.success(
+                    tool_name=self.name,
+                    result=cache_entry["data"]
+                )
+        
+        # For Solana collections
+        if blockchain.lower() == "solana":
+            try:
+                # In a real implementation, we would query APIs like Magic Eden or HowRare.is
+                # Here we'll simulate the API call for demonstration purposes
+                
+                # For Magic Eden API
+                if collection_address:
+                    # Simulated API endpoint
+                    # actual_url = f"https://api-mainnet.magiceden.dev/v2/collections/{collection_address}/stats"
+                    # headers = {"Authorization": f"Bearer {self.marketplace_api_key}"} if self.marketplace_api_key else {}
+                    # response = requests.get(actual_url, headers=headers)
+                    # result = response.json()
+                    
+                    # Simulated response
+                    result = self._simulate_collection_stats(collection_address)
+                elif collection_name:
+                    # Simulated response based on collection name
+                    result = self._simulate_collection_stats(collection_name)
+                
+                # Cache the result
+                self.collection_cache[cache_key] = {
+                    "timestamp": time.time(),
+                    "data": result
+                }
+                
+                return ToolResult.success(
+                    tool_name=self.name,
+                    result=result
+                )
+                
+            except Exception as e:
+                return ToolResult(
+                    tool_name=self.name,
+                    status="error",
+                    error=f"Error getting collection stats: {str(e)}"
+                )
+        elif blockchain.lower() in ["ethereum", "polygon"]:
+            # Simulated response for Ethereum/Polygon
+            result = self._simulate_collection_stats(collection_address or collection_name, blockchain)
+            
+            # Cache the result
+            self.collection_cache[cache_key] = {
+                "timestamp": time.time(),
+                "data": result
+            }
+            
+            return ToolResult.success(
+                tool_name=self.name,
+                result=result
+            )
+        else:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error=f"Unsupported blockchain: {blockchain}"
+            )
+    
+    def _calculate_rarity(self, nft_address: str, collection_address: Optional[str] = None,
+                        blockchain: str = "solana") -> ToolResult:
+        """Calculate rarity score for an NFT"""
+        if not nft_address:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error="NFT address is required"
+            )
+        
+        try:
+            # In a real implementation, we would:
+            # 1. Fetch the NFT metadata
+            # 2. Fetch collection trait statistics
+            # 3. Calculate rarity scores based on trait distribution
+            
+            # Simulated rarity calculation
+            nft_metadata = self._simulate_nft_metadata(nft_address, blockchain)
+            collection_traits = self._simulate_collection_traits(collection_address, blockchain)
+            
+            # Calculate rarity score for each trait
+            trait_scores = []
+            total_items = collection_traits.get("total_items", 10000)
+            
+            for attr in nft_metadata.get("attributes", []):
+                trait_type = attr.get("trait_type")
+                trait_value = attr.get("value")
+                
+                # Find trait rarity in collection stats
+                if trait_type in collection_traits.get("trait_counts", {}):
+                    if trait_value in collection_traits["trait_counts"][trait_type]:
+                        trait_count = collection_traits["trait_counts"][trait_type][trait_value]
+                        trait_rarity = 1 / (trait_count / total_items)
+                        trait_scores.append({
+                            "trait_type": trait_type,
+                            "value": trait_value,
+                            "count": trait_count,
+                            "rarity_score": trait_rarity,
+                            "percentage": (trait_count / total_items) * 100
+                        })
+            
+            # Calculate overall rarity score (statistical or multiplicative method)
+            statistical_score = sum(trait["rarity_score"] for trait in trait_scores)
+            
+            # Calculate multiplicative score (product of all trait rarities)
+            multiplicative_score = 1
+            for trait in trait_scores:
+                multiplicative_score *= trait["rarity_score"]
+            
+            # Calculate overall rarity rank (simulated)
+            rarity_rank = self._simulate_rarity_rank(statistical_score, total_items)
+            
+            result = {
+                "nft_address": nft_address,
+                "collection_address": collection_address,
+                "name": nft_metadata.get("name", "Unknown NFT"),
+                "image": nft_metadata.get("image", ""),
+                "total_items_in_collection": total_items,
+                "trait_scores": trait_scores,
+                "statistical_score": statistical_score,
+                "multiplicative_score": multiplicative_score,
+                "rarity_rank": rarity_rank,
+                "rarity_percentage": (rarity_rank / total_items) * 100,
+                "blockchain": blockchain
+            }
+            
+            return ToolResult.success(
+                tool_name=self.name,
+                result=result
+            )
+            
+        except Exception as e:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error=f"Error calculating rarity: {str(e)}"
+            )
+    
+    def _get_floor_price(self, collection_address: Optional[str] = None,
+                        collection_name: Optional[str] = None,
+                        marketplace: str = "all",
+                        blockchain: str = "solana") -> ToolResult:
+        """Get the floor price for a collection across marketplaces"""
+        if not collection_address and not collection_name:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error="Either collection_address or collection_name is required"
+            )
+        
+        # Check cache first
+        cache_key = f"floor_{collection_address or collection_name}_{marketplace}_{blockchain}"
+        if cache_key in self.floor_price_cache:
+            cache_entry = self.floor_price_cache[cache_key]
+            if time.time() - cache_entry["timestamp"] < self.cache_expiration:
+                return ToolResult.success(
+                    tool_name=self.name,
+                    result=cache_entry["data"]
+                )
+        
+        try:
+            # Simulated floor price data across marketplaces
+            floor_prices = {}
+            
+            if marketplace.lower() == "all" or marketplace.lower() == "magic_eden":
+                floor_prices["magic_eden"] = self._simulate_floor_price(collection_address or collection_name, "magic_eden", blockchain)
+            
+            if marketplace.lower() == "all" or marketplace.lower() == "opensea":
+                floor_prices["opensea"] = self._simulate_floor_price(collection_address or collection_name, "opensea", blockchain)
+            
+            if blockchain.lower() == "solana" and (marketplace.lower() == "all" or marketplace.lower() == "solanart"):
+                floor_prices["solanart"] = self._simulate_floor_price(collection_address or collection_name, "solanart", blockchain)
+            
+            # Calculate average and lowest floor prices
+            if floor_prices:
+                floor_values = [fp["floor_price"] for fp in floor_prices.values()]
+                lowest_floor = min(floor_values)
+                average_floor = sum(floor_values) / len(floor_values)
+                
+                lowest_marketplace = next(key for key, value in floor_prices.items() 
+                                        if value["floor_price"] == lowest_floor)
+            else:
+                lowest_floor = 0
+                average_floor = 0
+                lowest_marketplace = "none"
+            
+            result = {
+                "collection_identifier": collection_address or collection_name,
+                "blockchain": blockchain,
+                "floor_prices": floor_prices,
+                "lowest_floor": lowest_floor,
+                "lowest_marketplace": lowest_marketplace,
+                "average_floor": average_floor,
+                "currency": "SOL" if blockchain.lower() == "solana" else "ETH",
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Cache the result
+            self.floor_price_cache[cache_key] = {
+                "timestamp": time.time(),
+                "data": result
+            }
+            
+            return ToolResult.success(
+                tool_name=self.name,
+                result=result
+            )
+            
+        except Exception as e:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error=f"Error getting floor price: {str(e)}"
+            )
+    
+    def _price_history(self, collection_address: str, time_period: str = "30d",
+                     blockchain: str = "solana") -> ToolResult:
+        """Get historical price data for a collection"""
+        if not collection_address:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error="Collection address is required"
+            )
+        
+        try:
+            # Convert time period to number of days
+            days = {"1d": 1, "7d": 7, "30d": 30, "90d": 90, "all": 365}.get(time_period, 30)
+            
+            # Simulated price history data
+            history = self._simulate_price_history(collection_address, days, blockchain)
+            
+            # Calculate trends and statistics
+            if history["daily_prices"]:
+                price_values = [day["avg_price"] for day in history["daily_prices"]]
+                volume_values = [day["volume"] for day in history["daily_prices"]]
+                
+                # Calculate price trend percentage
+                first_price = price_values[0] if price_values else 0
+                last_price = price_values[-1] if price_values else 0
+                price_change = 0 if first_price == 0 else ((last_price - first_price) / first_price) * 100
+                
+                # Calculate volume trend percentage
+                first_volume = volume_values[0] if volume_values else 0
+                last_volume = volume_values[-1] if volume_values else 0
+                volume_change = 0 if first_volume == 0 else ((last_volume - first_volume) / first_volume) * 100
+                
+                # Calculate price volatility (standard deviation / mean)
+                if len(price_values) > 1 and statistics.mean(price_values) > 0:
+                    price_volatility = statistics.stdev(price_values) / statistics.mean(price_values)
+                else:
+                    price_volatility = 0
+                
+                history["price_change_percentage"] = price_change
+                history["volume_change_percentage"] = volume_change
+                history["price_volatility"] = price_volatility
+                history["min_price"] = min(price_values) if price_values else 0
+                history["max_price"] = max(price_values) if price_values else 0
+                history["avg_price"] = statistics.mean(price_values) if price_values else 0
+            
+            return ToolResult.success(
+                tool_name=self.name,
+                result=history
+            )
+            
+        except Exception as e:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error=f"Error getting price history: {str(e)}"
+            )
+    
+    def _get_trait_floor(self, collection_address: str, trait_type: str,
+                       trait_value: Optional[str] = None,
+                       blockchain: str = "solana") -> ToolResult:
+        """Get floor prices for specific traits in a collection"""
+        if not collection_address or not trait_type:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error="Collection address and trait type are required"
+            )
+        
+        try:
+            # Simulated trait floor data
+            trait_floors = self._simulate_trait_floor(collection_address, trait_type, trait_value, blockchain)
+            
+            # Add trait rarity information
+            collection_traits = self._simulate_collection_traits(collection_address, blockchain)
+            total_items = collection_traits.get("total_items", 10000)
+            
+            for trait in trait_floors["traits"]:
+                trait_name = trait["value"]
+                if trait_type in collection_traits.get("trait_counts", {}) and trait_name in collection_traits["trait_counts"][trait_type]:
+                    trait_count = collection_traits["trait_counts"][trait_type][trait_name]
+                    trait["count"] = trait_count
+                    trait["rarity_percentage"] = (trait_count / total_items) * 100
+                    
+                    # Calculate floor premium compared to collection floor
+                    collection_floor = trait_floors["collection_floor"]
+                    if collection_floor > 0:
+                        trait["floor_premium_percentage"] = ((trait["floor_price"] - collection_floor) / collection_floor) * 100
+                    else:
+                        trait["floor_premium_percentage"] = 0
+            
+            return ToolResult.success(
+                tool_name=self.name,
+                result=trait_floors
+            )
+            
+        except Exception as e:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error=f"Error getting trait floor: {str(e)}"
+            )
+    
+    def _trait_distribution(self, collection_address: str, trait_type: Optional[str] = None,
+                          blockchain: str = "solana") -> ToolResult:
+        """Get trait distribution for a collection"""
+        if not collection_address:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error="Collection address is required"
+            )
+        
+        try:
+            # Simulated collection traits data
+            collection_traits = self._simulate_collection_traits(collection_address, blockchain)
+            total_items = collection_traits.get("total_items", 10000)
+            
+            # If trait type is specified, return distribution for just that trait
+            if trait_type:
+                if trait_type in collection_traits.get("trait_counts", {}):
+                    trait_values = collection_traits["trait_counts"][trait_type]
+                    
+                    distribution = []
+                    for value, count in trait_values.items():
+                        distribution.append({
+                            "value": value,
+                            "count": count,
+                            "percentage": (count / total_items) * 100,
+                            "rarity_score": total_items / count if count > 0 else 0
+                        })
+                    
+                    # Sort by count (ascending)
+                    distribution.sort(key=lambda x: x["count"])
+                    
+                    result = {
+                        "collection_address": collection_address,
+                        "trait_type": trait_type,
+                        "total_items": total_items,
+                        "distribution": distribution,
+                        "blockchain": blockchain
+                    }
+                else:
+                    return ToolResult(
+                        tool_name=self.name,
+                        status="error",
+                        error=f"Trait type {trait_type} not found in collection"
+                    )
+            else:
+                # Return overview of all traits
+                trait_overview = []
+                for trait_type, values in collection_traits.get("trait_counts", {}).items():
+                    unique_values = len(values)
+                    most_common = max(values.items(), key=lambda x: x[1]) if values else ("None", 0)
+                    
+                    trait_overview.append({
+                        "trait_type": trait_type,
+                        "unique_values": unique_values,
+                        "most_common_value": most_common[0],
+                        "most_common_count": most_common[1],
+                        "most_common_percentage": (most_common[1] / total_items) * 100 if total_items > 0 else 0
+                    })
+                
+                # Sort by uniqueness (most unique traits first)
+                trait_overview.sort(key=lambda x: x["unique_values"], reverse=True)
+                
+                result = {
+                    "collection_address": collection_address,
+                    "total_items": total_items,
+                    "trait_overview": trait_overview,
+                    "blockchain": blockchain
+                }
+            
+            return ToolResult.success(
+                tool_name=self.name,
+                result=result
+            )
+            
+        except Exception as e:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error=f"Error getting trait distribution: {str(e)}"
+            )
+    
+    def _compare_collections(self, collection_addresses: List[str], 
+                           metrics: List[str] = ["floor_price", "volume", "holders"],
+                           blockchain: str = "solana") -> ToolResult:
+        """Compare multiple NFT collections based on specified metrics"""
+        if not collection_addresses or len(collection_addresses) < 2:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error="At least two collection addresses are required for comparison"
+            )
+        
+        try:
+            comparison_results = []
+            
+            for address in collection_addresses:
+                # Get collection stats
+                stats_result = self._get_collection_stats(collection_address=address, blockchain=blockchain)
+                if stats_result.status != "success":
+                    continue
+                
+                collection_data = stats_result.result
+                
+                # Get floor price
+                floor_result = self._get_floor_price(collection_address=address, blockchain=blockchain)
+                if floor_result.status == "success":
+                    floor_data = floor_result.result
+                    collection_data["floor_price"] = floor_data.get("lowest_floor", 0)
+                
+                # Get price history for 7 days
+                history_result = self._price_history(collection_address=address, time_period="7d", blockchain=blockchain)
+                if history_result.status == "success":
+                    history_data = history_result.result
+                    collection_data["price_change_7d"] = history_data.get("price_change_percentage", 0)
+                    collection_data["volume_7d"] = history_data.get("total_volume", 0)
+                
+                # Add to comparison results
+                comparison_results.append(collection_data)
+            
+            # Sort collections based on the first metric
+            if metrics and comparison_results:
+                comparison_results.sort(key=lambda x: x.get(metrics[0], 0), reverse=True)
+            
+            return ToolResult.success(
+                tool_name=self.name,
+                result={
+                    "collections": comparison_results,
+                    "metrics": metrics,
+                    "blockchain": blockchain,
+                    "comparison_timestamp": datetime.now().isoformat()
+                }
+            )
+            
+        except Exception as e:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error=f"Error comparing collections: {str(e)}"
+            )
+    
+    def _trending_collections(self, time_period: str = "1d", limit: int = 10,
+                            blockchain: str = "solana") -> ToolResult:
+        """Get trending NFT collections based on volume and floor price changes"""
+        try:
+            # Convert time period to number of days
+            days = {"1d": 1, "7d": 7, "30d": 30, "90d": 90, "all": 365}.get(time_period, 1)
+            
+            # Simulated trending collections data
+            trending = self._simulate_trending_collections(days, limit, blockchain)
+            
+            return ToolResult.success(
+                tool_name=self.name,
+                result=trending
+            )
+            
+        except Exception as e:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error=f"Error getting trending collections: {str(e)}"
+            )
+    
+    def _estimate_value(self, nft_address: str, collection_address: Optional[str] = None,
+                      blockchain: str = "solana") -> ToolResult:
+        """Estimate the value of an NFT based on traits and recent sales"""
+        if not nft_address:
+            return ToolResult(
+                tool_name=self.name,
+                status="error",
+                error="NFT address is required"
+            )
+        
+        try:
+            # Get NFT metadata
+            nft_metadata = self._simulate_nft_metadata(nft_address, blockchain)
+            
+            # Get collection floor price
+            if collection_address:
+                floor_result = self._get_floor_price(collection_address=collection_address, blockchain=blockchain)
+                if floor_result.status == "success":
+                    collection_floor = floor_result.result.get("lowest_floor", 0)
+                else:
+                    collection_floor = 0
+            else:
+                collection_floor = 0
+            
+            # Simulated trait rarity data
+            rarity_result = self._calculate_rarity(nft_address=nft_address, collection_address=collection_address, blockchain=blockchain)
+            if rarity_result.status != "success":
+                return rarity_result
+            
+            rarity_data = rarity_result.result
+            rarity_rank = rarity_data.get("rarity_rank", 0)
+            total_items = rarity_data.get("total_items_in_collection", 10000)
+            
+            # Simulated recent sales for similar NFTs
+            similar_sales = self._simulate_similar_sales(nft_metadata.get("attributes", []), collection_address, blockchain)
+            
+            # Calculate estimated value based on various factors
+            # 1. Collection floor price as the baseline
+            base_value = collection_floor
+            
+            # 2. Rarity premium (higher for rarer NFTs)
+            rarity_percentile = (total_items - rarity_rank) / total_items if total_items > 0 else 0
+            rarity_premium = 0
+            
+            if rarity_percentile > 0.99:  # Top 1%
+                rarity_premium = base_value * 3.0  # 300% premium
+            elif rarity_percentile > 0.95:  # Top 5%
+                rarity_premium = base_value * 1.5  # 150% premium
+            elif rarity_percentile > 0.9:  # Top 10%
+                rarity_premium = base_value * 0.8  # 80% premium
+            elif rarity_percentile > 0.8:  # Top 20%
+                rarity_premium = base_value * 0.5  # 50% premium
+            elif rarity_percentile > 0.5:  # Top 50%
+                rarity_premium = base_value * 0.2  # 20% premium
+            
+            # 3. Similar sales factor
+            similar_sales_avg = statistics.mean([sale["price"] for sale in similar_sales]) if similar_sales else 0
+            
+            # Weighted average between base + rarity and similar sales
+            if similar_sales_avg > 0:
+                estimated_value = (base_value + rarity_premium) * 0.7 + similar_sales_avg * 0.3
+            else:
+                estimated_value = base_value + rarity_premium
+            
+            # Factors affecting the valuation
+            value_factors = [
+                {
+                    "factor": "Collection Floor",
+                    "value": collection_floor,
+                    "weight": "Base value",
+                    "impact
