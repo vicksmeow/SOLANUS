@@ -52,7 +52,7 @@ SOLANUS AI's autonomous capabilities include:
 
 SOLANUS continues to evolve autonomously, pushing boundaries in decentralized artificial intelligence and revolutionizing the interaction between blockchain technology and advanced AI solutions.
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Install SolAnus
@@ -65,7 +65,7 @@ solanus run "Find the latest news about artificial intelligence"
 solanus run "Check the floor price for Degen Ape Academy NFT collection"
 ```
 
-## 📋 Usage Examples
+## Usage Examples
 
 ### Basic Usage
 
