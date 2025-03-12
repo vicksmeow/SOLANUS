@@ -267,7 +267,7 @@ to my Solana wallet GSAhLGB... using Wormhole
 """)
 ```
 
-## 👥 Contributing
+## Contributing
 
 We welcome contributions from the community! SOLANUS is designed to be community-driven, and your input helps make it better for everyone.
 
