@@ -1,7 +1,11 @@
 # SOLANUS: An Upgraded Web3 Version of ANUS
 
 <p align="center">
-  <img src="assets/anus_logo.png" alt="Anus AI Logo" width="150"/>
+  <img src="assets/header_solanus.png" alt="Anus AI Logo" width="800"/>
+</p>
+
+<p align="center">
+  <img src="assets/solano.png" alt="Anus AI Logo" width="150"/>
 </p>
 
 ## Introduction
@@ -267,12 +271,116 @@ to my Solana wallet GSAhLGB... using Wormhole
 """)
 ```
 
+## 👥 Contributing
+
+We welcome contributions from the community! SOLANUS is designed to be community-driven, and your input helps make it better for everyone.
+
+### Ways to Contribute
+
+- **Code Contributions**: Implement new features, fix bugs, or improve performance
+- **Documentation**: Improve or expand documentation, add examples, fix typos
+- **Bug Reports**: Report bugs or suggest improvements
+- **Feature Requests**: Suggest new features or enhancements
+- **Community Support**: Help answer questions and support other users
+
+### Getting Started with Contributing
+
+1. **Fork the Repository**
+
+```bash
+# Fork the repository on GitHub, then clone your fork
+git clone https://github.com/your-username/SOLANUS.git
+cd anus
+```
+
+2. **Set Up Development Environment**
+
+```bash
+# Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install development dependencies
+pip install -e ".[dev]"
+```
+
+3. **Create a Branch**
+
+```bash
+# Create a branch for your contribution
+git checkout -b feature/your-feature-name
+```
+
+4. **Make Your Changes**
+
+- Follow the code style guidelines
+- Add tests for new functionality
+- Update documentation as needed
+
+5. **Run Tests**
+
+```bash
+# Run the test suite
+pytest
+
+# Run linting
+flake8
+mypy solanus
+```
+
+6. **Submit a Pull Request**
+
+- Push your changes to your fork
+- Submit a pull request from your branch to our main branch
+- Provide a clear description of the changes and any related issues
+
+### Code Style Guidelines
+
+- Follow [PEP 8](https://pep8.org/) for Python code style
+- Use type hints for all function parameters and return values
+- Write docstrings for all functions, classes, and modules
+- Keep functions focused and small (under 50 lines when possible)
+- Use meaningful variable and function names
+
+### Commit Message Guidelines
+
+We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+Types include:
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code changes that neither fix bugs nor add features
+- `test`: Adding or modifying tests
+- `chore`: Changes to the build process or auxiliary tools
+
+### Pull Request Process
+
+1. Update the README.md or documentation with details of changes if appropriate
+2. Update the CHANGELOG.md with details of changes
+3. The PR should work for Python 3.11 and above
+4. PRs require approval from at least one maintainer
+5. Once approved, a maintainer will merge your PR
+
+### Code of Conduct
+
+Please note that this project is released with a [Contributor Code of Conduct](CODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.
+
+
 ## SOLANUS Community
 Join our community to get help, share ideas, and contribute to the project:
 
 - Twitter: https://x.com/solanus_ai
 - Telegram: https://t.me/solanus_ai
-- Discord: https://discord.gg/solanus
 
 ## License
 
