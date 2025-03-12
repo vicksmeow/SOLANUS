@@ -31,12 +31,12 @@ SOLANUS performs an extensive array of autonomous tasks, including:
 - Utilizing blockchain for automated, trustless interactions and management of digital assets.
 
 ### Web3 Functionalities:
-- **Solana Blockchain Integration**: Enables SOLANUS to interact seamlessly with Solana's blockchain, manage assets, and automate on-chain transactions.
- - Asset management (tokens, NFTs, crypto assets)
- - Automated smart contract interactions
-- **NFT & Digital Asset Management**: Creation, validation, trading, and custody management.
-- **SocialFi & Decentralized Community Engagement**: Automating decentralized community interactions, providing user-friendly interfaces for blockchain communities, and facilitating decentralized applications.
-- **GameFi & Game Mechanics**: Enables the implementation of play-to-earn mechanics, managing gaming assets, rewards, and blockchain-based games.
+1. **Solana Blockchain Integration**: Enables SOLANUS to interact seamlessly with Solana's blockchain, manage assets, and automate on-chain transactions.
+    - Asset management (tokens, NFTs, crypto assets)
+    - Automated smart contract interactions
+2. **NFT & Digital Asset Management**: Creation, validation, trading, and custody management.
+3. **SocialFi & Decentralized Community Engagement**: Automating decentralized community interactions, providing user-friendly interfaces for blockchain communities, and facilitating decentralized applications.
+4. **GameFi & Game Mechanics**: Enables the implementation of play-to-earn mechanics, managing gaming assets, rewards, and blockchain-based games.
 
 ## Technical Capabilities
 SOLANUS AI's autonomous capabilities include:
